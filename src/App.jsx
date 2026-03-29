@@ -2,9 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import './App.css'
 import { calculateProductHealth } from './utils/calculateProductHealth'
 import { calculateGlobalHealthScore } from './utils/calculateGlobalHealthScore'
+import { rankUsdaMatches } from './utils/rankUsdaMatches'
 
 const QUAGGA_CDN = 'https://unpkg.com/quagga/dist/quagga.min.js'
 const USDA_API_KEY = import.meta.env.VITE_USDA_API_KEY
+const USDA_SEARCH_URL = 'https://api.nal.usda.gov/fdc/v1/foods/search'
+const NAME_SEARCH_PAGE_SIZE = 25
+const NAME_SEARCH_MAX_PAGES = 4
 const NUTRI_SCORE_COLORS = {
   a: '#008b4c',
   b: '#85bb2f',
@@ -103,7 +107,10 @@ const NUTRIENT_CONFIG = [
 ]
 
 function App() {
+  const [productName, setProductName] = useState('')
   const [barcode, setBarcode] = useState('')
+  const [nameMatches, setNameMatches] = useState([])
+  const [selectedMatchId, setSelectedMatchId] = useState('')
   const [product, setProduct] = useState(null)
   const [rawFoodData, setRawFoodData] = useState(null)
   const [uploadedImageName, setUploadedImageName] = useState('')
@@ -153,6 +160,11 @@ function App() {
   function clearResult() {
     setProduct(null)
     setRawFoodData(null)
+  }
+
+  function clearNameMatches() {
+    setNameMatches([])
+    setSelectedMatchId('')
   }
 
   function formatNumber(value, type = 'default') {
@@ -254,18 +266,85 @@ function App() {
     }
   }
 
-  async function fetchProduct(rawBarcode) {
-    const normalized = String(rawBarcode || '').trim()
+  function applySelectedFood(food) {
+    const mappedProduct = buildNutritionSummary(food)
+    console.log('Mapped nutrition summary', mappedProduct)
+
+    setRawFoodData(food)
+    setProduct(mappedProduct)
+  }
+
+  async function fetchUsdaSearchPage(query, pageSize, pageNumber = 1) {
+    const response = await fetch(
+      `${USDA_SEARCH_URL}?api_key=${encodeURIComponent(USDA_API_KEY)}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query,
+          dataType: ['Branded'],
+          pageSize,
+          pageNumber,
+        }),
+      },
+    )
+
+    if (response.status === 429) {
+      throw new Error('Too many requests')
+    }
+
+    if (response.status === 403) {
+      throw new Error('Invalid key')
+    }
+
+    if (!response.ok) {
+      throw new Error(`Request failed (${response.status}).`)
+    }
+
+    return response.json()
+  }
+
+  async function fetchAllNameCandidates(query) {
+    const pages = []
+
+    for (let pageNumber = 1; pageNumber <= NAME_SEARCH_MAX_PAGES; pageNumber += 1) {
+      const data = await fetchUsdaSearchPage(query, NAME_SEARCH_PAGE_SIZE, pageNumber)
+      const foods = Array.isArray(data?.foods) ? data.foods : []
+
+      pages.push(...foods)
+
+      if (foods.length < NAME_SEARCH_PAGE_SIZE) {
+        break
+      }
+    }
+
+    return [...new Map(pages.map((food) => [String(food.fdcId), food])).values()]
+  }
+
+  async function searchProducts(rawQuery, lookupType) {
+    const normalized = String(rawQuery || '').trim()
+    const lookupLabel = lookupType === 'name' ? 'product name' : 'barcode'
 
     resetMessages()
     clearResult()
 
+    if (lookupType !== 'name') {
+      clearNameMatches()
+    }
+
     if (!normalized) {
-      setError(
-        decodeAttempted
-          ? 'No barcode could be read from the uploaded image. Try a tighter, clearer barcode photo.'
-          : 'Please enter or scan a barcode.',
-      )
+      if (lookupType === 'name') {
+        setError('Please enter a product name.')
+        clearNameMatches()
+      } else {
+        setError(
+          decodeAttempted
+            ? 'No barcode could be read from the uploaded image. Try a tighter, clearer barcode photo.'
+            : 'Please enter or scan a barcode.',
+        )
+      }
       return
     }
 
@@ -275,63 +354,46 @@ function App() {
     }
 
     setIsLoading(true)
-    setNotice(`Looking up barcode: ${normalized}...`)
+    setNotice(`Looking up ${lookupLabel}: ${normalized}...`)
 
     try {
-      const response = await fetch(
-        `https://api.nal.usda.gov/fdc/v1/foods/search?api_key=${encodeURIComponent(USDA_API_KEY)}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            query: normalized,
-            dataType: ['Branded'],
-            pageSize: 1,
-          }),
-        },
-      )
+      let foods = []
 
-      if (response.status === 429) {
-        setError('Too many requests')
-        return
+      if (lookupType === 'name') {
+        foods = await fetchAllNameCandidates(normalized)
+      } else {
+        const data = await fetchUsdaSearchPage(normalized, 1)
+        foods = Array.isArray(data?.foods) ? data.foods : []
       }
 
-      if (response.status === 403) {
-        setError('Invalid key')
-        return
-      }
+      console.log('USDA candidate food records', foods)
 
-      if (!response.ok) {
-        setError(`Request failed (${response.status}).`)
-        return
-      }
-
-      const data = await response.json()
-      const food = data?.foods?.[0]
-
-      console.log('USDA search response', data)
-      console.log('USDA first food record', food)
-
-      if (!food) {
+      if (!foods.length) {
         setProductNotFound(true)
         setNotice('')
+        clearNameMatches()
         return
       }
 
-      const mappedProduct = buildNutritionSummary(food)
-      console.log('Mapped nutrition summary', mappedProduct)
+      if (lookupType === 'name') {
+        const rankedFoods = rankUsdaMatches(normalized, foods, 5)
+        console.log('Ranked USDA name matches', rankedFoods)
+        setNameMatches(rankedFoods)
+        setSelectedMatchId('')
+        setNotice(
+          `Collected ${foods.length} matching USDA names. Showing the 5 best-ranked options.`,
+        )
+        return
+      }
 
-      setRawFoodData(food)
-      setProduct(mappedProduct)
+      applySelectedFood(foods[0])
       setNotice('')
     } catch (fetchError) {
       setError(`Error: ${fetchError.message}`)
     } finally {
       setIsLoading(false)
       setNotice((currentNotice) =>
-        currentNotice.startsWith('Looking up barcode:') ? '' : currentNotice,
+        currentNotice.startsWith(`Looking up ${lookupLabel}:`) ? '' : currentNotice,
       )
     }
   }
@@ -377,9 +439,16 @@ function App() {
     })
   }
 
+  async function handleNameLookupSubmit(event) {
+    event.preventDefault()
+    setDecodeAttempted(false)
+    await searchProducts(productName, 'name')
+  }
+
   async function handleLookupSubmit(event) {
     event.preventDefault()
-    await fetchProduct(barcode)
+    setDecodeAttempted(false)
+    await searchProducts(barcode, 'barcode')
   }
 
   async function handleFileChange(event) {
@@ -392,13 +461,13 @@ function App() {
     setDecodeAttempted(true)
     resetMessages()
     clearResult()
-    setIsLoading(true)
-    setNotice('Decoding barcode from image...')
+      setIsLoading(true)
+      setNotice('Decoding barcode from image...')
 
     try {
       const decodedBarcode = await decodeBarcodeFromImage(file)
       setBarcode(decodedBarcode)
-      await fetchProduct(decodedBarcode)
+      await searchProducts(decodedBarcode, 'barcode')
     } catch (decodeError) {
       setError(
         `${decodeError.message} Try an image where the barcode fills most of the frame and is not a screenshot of the page.`,
@@ -408,15 +477,64 @@ function App() {
     }
   }
 
+  function handleMatchChange(event) {
+    const nextMatchId = event.target.value
+    setSelectedMatchId(nextMatchId)
+
+    const matchedFood = nameMatches.find((food) => String(food.fdcId) === nextMatchId)
+    if (!matchedFood) {
+      clearResult()
+      return
+    }
+
+    applySelectedFood(matchedFood)
+    setNotice('')
+    setProductNotFound(false)
+  }
+
   return (
     <main className="app-shell">
       <section className="panel">
         <p className="eyebrow">USDA FoodData Central</p>
-        <h1>Nutrition by barcode</h1>
+        <h1>Nutrition lookup</h1>
         <p className="intro">
-          This version uses the product&apos;s `foodNutrients` array and computes amount
-          per serving from the USDA values plus the serving size.
+          Search by product name or barcode. The app uses the USDA product&apos;s
+          `foodNutrients` array and computes amount per serving from the USDA values plus
+          the serving size.
         </p>
+
+        <form className="lookup-form" onSubmit={handleNameLookupSubmit}>
+          <label className="field">
+            <span>Product name</span>
+            <input
+              type="text"
+              placeholder="Enter a branded food name"
+              value={productName}
+              onChange={(event) => setProductName(event.target.value)}
+            />
+          </label>
+          <button type="submit" disabled={isLoading}>
+            {isLoading ? 'Loading...' : 'Search by name'}
+          </button>
+        </form>
+
+        {nameMatches.length ? (
+          <label className="field match-field">
+            <span>Top matches</span>
+            <select value={selectedMatchId} onChange={handleMatchChange}>
+              <option value="">Select the matching product</option>
+              {nameMatches.map((food) => (
+                <option key={food.fdcId} value={String(food.fdcId)}>
+                  {[food.description, food.brandName || food.brandOwner, food.packageWeight]
+                    .filter(Boolean)
+                    .join(' | ')}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
+
+        <p className="lookup-divider">Or use a barcode</p>
 
         <form className="lookup-form" onSubmit={handleLookupSubmit}>
           <label className="field">

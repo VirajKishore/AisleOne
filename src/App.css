@@ -35,6 +35,15 @@ h1 {
   display: block;
 }
 
+.lookup-divider {
+  margin: 18px 0 14px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #666;
+}
+
 .field {
   display: block;
   margin-bottom: 12px;
@@ -48,13 +57,18 @@ h1 {
 }
 
 .field input[type='text'],
-.field input[type='file'] {
+.field input[type='file'],
+.field select {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid #bbb;
   border-radius: 8px;
   background: #fff;
   color: #111;
+}
+
+.match-field {
+  margin-top: 14px;
 }
 
 button {
