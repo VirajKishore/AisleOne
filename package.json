@@ -5,12 +5,18 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "api:dev": "node --watch index.js",
+    "api:start": "node index.js",
     "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fastify/swagger": "^9.7.0",
+    "@fastify/swagger-ui": "^5.2.5",
     "@google/genai": "^1.17.0",
+    "dotenv": "^17.3.1",
+    "fastify": "^5.8.4",
     "nutri-score": "^0.2.4",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"

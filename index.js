@@ -1,39 +1,19 @@
-const { GoogleGenerativeAI } = require("@google/generative-ai");
-require("dotenv").config();
+/* global process */
+import dotenv from 'dotenv'
+import { buildServer } from './server/app.js'
 
-// Initialize the API with your key from the .env file
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+dotenv.config()
 
-async function checkGeminiStatus() {
-  try {
-    console.log("Checking connection to Gemini 2.5 Flash (Node.js)...");
+const port = Number(process.env.PORT) || 3000
+const host = process.env.HOST || '0.0.0.0'
 
-    // Get the model - using the 2026 standard version
-    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+const server = buildServer()
 
-    const prompt = "Connection test: Reply with 'Node.js Success'.";
-
-    // Generate content
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    const text = response.text();
-
-    console.log("------------------------------");
-    console.log("API Key Status: WORKING");
-    console.log("Model Response:", text.trim());
-    console.log("------------------------------");
-  } catch (error) {
-    console.log("------------------------------");
-    console.log("API Key Status: FAILED");
-    console.log("Error Details:", error.message);
-
-    if (error.message.includes("404")) {
-      console.log(
-        "Tip: Ensure 'gemini-2.5-flash' is available in your region.",
-      );
-    }
-    console.log("------------------------------");
-  }
+try {
+  await server.listen({ port, host })
+  server.log.info(`API listening on http://${host}:${port}`)
+  server.log.info(`Swagger docs available at http://${host}:${port}/docs`)
+} catch (error) {
+  server.log.error(error)
+  process.exit(1)
 }
-
-checkGeminiStatus();
