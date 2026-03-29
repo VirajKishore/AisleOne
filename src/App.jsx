@@ -1,8 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState } from 'react'
 import './App.css'
 import { calculateProductHealth } from './utils/calculateProductHealth'
 import { calculateGlobalHealthScore } from './utils/calculateGlobalHealthScore'
 import { rankUsdaMatches } from './utils/rankUsdaMatches'
+import {
+  categorizeProduct,
+  computeSwapDelta,
+  generateAlternativeQueries,
+  rerankAlternatives,
+  searchSerperAlternatives,
+} from './utils/smartSwaps'
 
 const QUAGGA_CDN = 'https://unpkg.com/quagga/dist/quagga.min.js'
 const USDA_API_KEY = import.meta.env.VITE_USDA_API_KEY
@@ -114,12 +121,17 @@ function App() {
   const [product, setProduct] = useState(null)
   const [rawFoodData, setRawFoodData] = useState(null)
   const [uploadedImageName, setUploadedImageName] = useState('')
+  const [smartSwaps, setSmartSwaps] = useState([])
+  const [smartSwapsStatus, setSmartSwapsStatus] = useState('')
+  const [smartSwapsError, setSmartSwapsError] = useState('')
+  const [isLoadingSmartSwaps, setIsLoadingSmartSwaps] = useState(false)
   const [decodeAttempted, setDecodeAttempted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [productNotFound, setProductNotFound] = useState(false)
   const quaggaPromiseRef = useRef(null)
+  const smartSwapsRequestRef = useRef(0)
 
   useEffect(() => {
     if (window.Quagga) {
@@ -160,11 +172,22 @@ function App() {
   function clearResult() {
     setProduct(null)
     setRawFoodData(null)
+    setSmartSwaps([])
+    setSmartSwapsStatus('')
+    setSmartSwapsError('')
   }
 
   function clearNameMatches() {
     setNameMatches([])
     setSelectedMatchId('')
+  }
+
+  function normalizeText(value) {
+    return String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
   }
 
   function formatNumber(value, type = 'default') {
@@ -224,6 +247,7 @@ function App() {
     const nutrients = Array.isArray(food.foodNutrients) ? food.foodNutrients : []
     const servingSize = Number(food.servingSize) || null
     const servingUnit = food.servingSizeUnit || ''
+    const addedSugarsNutrient = findNutrient(nutrients, 'sugars, added')
 
     const nutritionItems = NUTRIENT_CONFIG.map((item) => {
       const nutrient = findNutrient(nutrients, item.nutrientName)
@@ -246,6 +270,14 @@ function App() {
       health.grade,
       food.ingredients,
       health.normalizedScore,
+      {
+        productName: food.description,
+        foodType: health.foodType,
+        categoryText: food.foodCategory,
+        protein: health.input.proteins,
+        fiber: health.input.fibers,
+        addedSugars: Number(addedSugarsNutrient?.value),
+      },
     )
 
     return {
@@ -322,6 +354,153 @@ function App() {
 
     return [...new Map(pages.map((food) => [String(food.fdcId), food])).values()]
   }
+
+  async function fetchTopUsdaMatch(query) {
+    const data = await fetchUsdaSearchPage(query, 8)
+    const foods = Array.isArray(data?.foods) ? data.foods : []
+    return rankUsdaMatches(query, foods, 1)[0] || null
+  }
+
+  function isEquivalentProduct(leftProduct, rightProduct) {
+    const leftName = normalizeText(leftProduct?.name || leftProduct?.title)
+    const rightName = normalizeText(rightProduct?.name || rightProduct?.title)
+    const leftBrand = normalizeText(leftProduct?.brand)
+    const rightBrand = normalizeText(rightProduct?.brand)
+
+    return leftName === rightName || (leftName === rightName && leftBrand === rightBrand)
+  }
+
+  const buildSmartSwaps = useEffectEvent(async (productSummary, requestId) => {
+    if (smartSwapsRequestRef.current !== requestId) {
+      return
+    }
+
+    setIsLoadingSmartSwaps(true)
+    setSmartSwaps([])
+    setSmartSwapsError('')
+
+    try {
+      if (smartSwapsRequestRef.current !== requestId) {
+        return
+      }
+
+      setSmartSwapsStatus('Classifying...')
+      const swapStrategy = await categorizeProduct(productSummary)
+
+      if (!swapStrategy?.broadCategory) {
+        throw new Error('Gemini did not return a usable swap category.')
+      }
+
+      if (smartSwapsRequestRef.current !== requestId) {
+        return
+      }
+
+      setSmartSwapsStatus('Generating Queries...')
+      const searchQueries = generateAlternativeQueries(productSummary, swapStrategy)
+
+      if (!searchQueries.length) {
+        throw new Error('Gemini did not return any useful alternative search queries.')
+      }
+
+      if (smartSwapsRequestRef.current !== requestId) {
+        return
+      }
+
+      setSmartSwapsStatus('Searching Alternatives...')
+      const alternatives = await searchSerperAlternatives(swapStrategy, searchQueries)
+
+      if (!alternatives.length) {
+        throw new Error('Serper did not return any alternative product titles.')
+      }
+
+      if (smartSwapsRequestRef.current !== requestId) {
+        return
+      }
+
+      setSmartSwapsStatus('Calculating Health Scores...')
+      const scoredAlternatives = await Promise.all(
+        alternatives.map(async (alternative) => {
+          const matchedFood = await fetchTopUsdaMatch(alternative.title)
+          if (!matchedFood) {
+            return null
+          }
+
+          const summary = buildNutritionSummary(matchedFood)
+          const swapDelta = computeSwapDelta(summary, alternative, swapStrategy)
+          return {
+            ...summary,
+            sourceLink: alternative.link,
+            sourceSnippet: alternative.snippet,
+            sourceName: alternative.source,
+            sourceTitle: alternative.title,
+            swapDelta,
+            swapScore: summary.globalHealth.totalScore + swapDelta,
+          }
+        }),
+      )
+
+      if (smartSwapsRequestRef.current !== requestId) {
+        return
+      }
+
+      const currentSwapScore =
+        productSummary.globalHealth.totalScore + computeSwapDelta(productSummary, null, swapStrategy)
+
+      const improvedAlternatives = scoredAlternatives
+        .filter(Boolean)
+        .filter((candidate) => !isEquivalentProduct(candidate, productSummary))
+        .filter((candidate) => candidate.swapScore > currentSwapScore)
+        .sort(
+          (left, right) =>
+            right.swapScore - left.swapScore ||
+            right.globalHealth.totalScore - left.globalHealth.totalScore ||
+            right.health.normalizedScore - left.health.normalizedScore,
+        )
+
+      if (!improvedAlternatives.length) {
+        throw new Error('No better-scoring alternatives were found for this product.')
+      }
+
+      if (smartSwapsRequestRef.current !== requestId) {
+        return
+      }
+
+      setSmartSwapsStatus('Ranking Alternatives...')
+      const rerankedAlternatives = await rerankAlternatives(
+        productSummary,
+        swapStrategy,
+        improvedAlternatives,
+      )
+
+      setSmartSwaps((rerankedAlternatives.length ? rerankedAlternatives : improvedAlternatives).slice(0, 3))
+      setSmartSwapsStatus('')
+    } catch (swapError) {
+      if (smartSwapsRequestRef.current !== requestId) {
+        return
+      }
+
+      setSmartSwapsError(swapError.message)
+      setSmartSwapsStatus('')
+    } finally {
+      if (smartSwapsRequestRef.current === requestId) {
+        setIsLoadingSmartSwaps(false)
+      }
+    }
+  })
+
+  useEffect(() => {
+    if (!product) {
+      return
+    }
+
+    const requestId = smartSwapsRequestRef.current + 1
+    smartSwapsRequestRef.current = requestId
+    buildSmartSwaps(product, requestId)
+
+    return () => {
+      smartSwapsRequestRef.current += 1
+    }
+  }, [product])
 
   async function searchProducts(rawQuery, lookupType) {
     const normalized = String(rawQuery || '').trim()
@@ -659,6 +838,13 @@ function App() {
                     Nutri-Score contributes {product.globalHealth.nutriComponent} points and NOVA
                     contributes {product.globalHealth.novaComponent} points.
                   </p>
+                  {product.globalHealth.ingredientQualityAdjustment ? (
+                    <p>
+                      Ingredient quality adjustment{' '}
+                      {product.globalHealth.ingredientQualityAdjustment > 0 ? '+' : ''}
+                      {product.globalHealth.ingredientQualityAdjustment} points.
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
@@ -681,6 +867,50 @@ function App() {
             <section className="ingredients-card">
               <h3>Ingredients</h3>
               <p>{product.ingredients}</p>
+            </section>
+
+            <section className="nutrition-list-card">
+              <h3>Smart Swaps</h3>
+              {smartSwapsStatus ? <p className="swap-status">{smartSwapsStatus}</p> : null}
+              {smartSwapsError ? <p className="swap-status error">{smartSwapsError}</p> : null}
+
+              {smartSwaps.length ? (
+                <div className="smart-swaps-grid">
+                  {smartSwaps.map((swap) => (
+                    <article className="smart-swap-card" key={swap.sourceLink || swap.name}>
+                      <p className="smart-swap-brand">{swap.brand}</p>
+                      <h4>{swap.name}</h4>
+                      <p className="smart-swap-score">
+                        Swap score {swap.swapScore}/100
+                      </p>
+                      <p className="smart-swap-score">
+                        Global score {swap.globalHealth.totalScore}/100
+                      </p>
+                      <p className="smart-swap-score">
+                        Nutri-Score {swap.health.grade.toUpperCase()} | NOVA Group{' '}
+                        {swap.globalHealth.novaGroup}
+                      </p>
+                      {swap.sourceSnippet ? (
+                        <p className="smart-swap-why">{swap.sourceSnippet}</p>
+                      ) : null}
+                      {swap.sourceLink ? (
+                        <a
+                          className="smart-swap-link"
+                          href={swap.sourceLink}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          Open product result
+                        </a>
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              ) : null}
+
+              {isLoadingSmartSwaps && !smartSwapsStatus ? (
+                <p className="swap-status">Preparing Smart Swaps...</p>
+              ) : null}
             </section>
 
             {rawFoodData ? (

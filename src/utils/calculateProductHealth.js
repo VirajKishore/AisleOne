@@ -5,6 +5,7 @@ const NUTRI_SCORE_RANGES = {
   solid: { min: -15, max: 40 },
   beverage: { min: -15, max: 10 },
 }
+const DAIRY_KEYWORDS = ['milk', 'whole milk', 'reduced fat milk', 'skim milk', 'yogurt', 'kefir']
 const BEVERAGE_KEYWORDS = [
   'beverage',
   'drink',
@@ -32,8 +33,8 @@ function toNumber(value) {
   return Number.isFinite(numeric) ? numeric : 0
 }
 
-function detectFoodType(food) {
-  const searchableText = [
+function getSearchableText(food) {
+  return [
     food?.description,
     food?.brandName,
     food?.foodCategory,
@@ -44,6 +45,14 @@ function detectFoodType(food) {
     .filter(Boolean)
     .join(' ')
     .toLowerCase()
+}
+
+function isDairyProduct(searchableText) {
+  return DAIRY_KEYWORDS.some((keyword) => searchableText.includes(keyword))
+}
+
+function detectFoodType(food) {
+  const searchableText = getSearchableText(food)
 
   if (BEVERAGE_KEYWORDS.some((keyword) => searchableText.includes(keyword))) {
     return 'beverage'
@@ -57,10 +66,21 @@ function detectFoodType(food) {
   return 'solid'
 }
 
+function detectNutriScoreMode(food, foodType) {
+  const searchableText = getSearchableText(food)
+
+  if (foodType === 'beverage' && isDairyProduct(searchableText)) {
+    return 'solid'
+  }
+
+  return foodType
+}
+
 export function calculateProductHealth(food) {
   const foodNutrients = Array.isArray(food?.foodNutrients) ? food.foodNutrients : []
   const foodType = detectFoodType(food)
-  const { min, max } = NUTRI_SCORE_RANGES[foodType]
+  const nutriScoreMode = detectNutriScoreMode(food, foodType)
+  const { min, max } = NUTRI_SCORE_RANGES[nutriScoreMode]
 
   const energyNutrient = getNutrientByName(foodNutrients, 'energy')
   const sugarNutrient = getNutrientByName(foodNutrients, 'total sugars')
@@ -85,7 +105,7 @@ export function calculateProductHealth(food) {
     fruit_percentage: 0,
   }
 
-  const rawScore = nutriScore.calculate(nutriScoreInput, foodType)
+  const rawScore = nutriScore.calculate(nutriScoreInput, nutriScoreMode)
   const clampedScore = Math.max(min, Math.min(max, rawScore))
   const normalizedScore = Math.round(((max - clampedScore) / (max - min)) * 100)
 
@@ -93,7 +113,8 @@ export function calculateProductHealth(food) {
     input: nutriScoreInput,
     score: rawScore,
     normalizedScore,
-    grade: nutriScore.calculateClass(nutriScoreInput, foodType),
+    grade: nutriScore.calculateClass(nutriScoreInput, nutriScoreMode),
     foodType,
+    nutriScoreMode,
   }
 }

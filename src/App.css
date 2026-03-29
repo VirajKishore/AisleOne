@@ -102,6 +102,15 @@ button:disabled {
   color: #b00020;
 }
 
+.swap-status {
+  margin: 0;
+  color: #333;
+}
+
+.swap-status.error {
+  color: #b00020;
+}
+
 .results {
   margin-top: 24px;
   padding-top: 20px;
@@ -339,6 +348,54 @@ button:disabled {
   color: #2d6a4f;
 }
 
+.smart-swaps-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+.smart-swap-card {
+  border: 1px solid #d9d9d9;
+  border-radius: 10px;
+  padding: 14px;
+  background: #fff;
+}
+
+.smart-swap-card h4 {
+  margin: 0;
+  font-size: 17px;
+  color: #111;
+}
+
+.smart-swap-brand,
+.smart-swap-score,
+.smart-swap-why {
+  margin: 10px 0 0;
+  color: #333;
+}
+
+.smart-swap-brand {
+  font-size: 13px;
+  color: #666;
+}
+
+.smart-swap-why {
+  line-height: 1.5;
+}
+
+.smart-swap-link {
+  display: inline-block;
+  margin-top: 14px;
+  color: #0b57d0;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.smart-swap-link:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 640px) {
   .panel {
     padding: 16px;
@@ -362,5 +419,9 @@ button:disabled {
 
   .global-health-gauge {
     margin: 0 auto;
+  }
+
+  .smart-swaps-grid {
+    grid-template-columns: 1fr;
   }
 }
