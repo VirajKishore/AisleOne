@@ -1,0 +1,68 @@
+{
+  "manifest_version": 3,
+  "name": "aisle1 – Grocery Product Intelligence",
+  "short_name": "aisle1",
+  "version": "1.1.0",
+  "description": "Detects grocery products on e-commerce pages and extracts structured product metadata for downstream nutrition scoring.",
+
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting"
+  ],
+
+  "host_permissions": [
+    "http://127.0.0.1:3000/*",
+    "http://localhost:3000/*",
+    "https://www.amazon.com/*",
+    "https://www.walmart.com/*",
+    "https://www.target.com/*",
+    "https://www.costco.com/*",
+    "https://www.wholefoodsmarket.com/*",
+    "https://www.kroger.com/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.amazon.com/*",
+        "https://www.walmart.com/*",
+        "https://www.target.com/*",
+        "https://www.costco.com/*",
+        "https://www.wholefoodsmarket.com/*",
+        "https://www.kroger.com/*"
+      ],
+      "js": [
+        "utils/extractStructuredData.js",
+        "utils/extractRetailerSpecific.js",
+        "utils/extractFallback.js",
+        "utils/normalizeProduct.js",
+        "contentScript.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "aisle1",
+    "default_icon": {
+      "16":  "icons/icon16.png",
+      "32":  "icons/icon32.png",
+      "48":  "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "icons": {
+    "16":  "icons/icon16.png",
+    "32":  "icons/icon32.png",
+    "48":  "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

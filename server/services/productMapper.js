@@ -1,5 +1,6 @@
 import { scoreFoodProduct } from './productScoring.js'
 import { withNormalizedFoodNutrients } from '../../src/utils/normalizeFoodNutrients.js'
+import { buildConcerns } from '../../src/utils/ingredientConcerns.js'
 
 const NUTRIENT_CONFIG = [
   { key: 'calories', nutrientName: 'energy', unit: 'kcal', type: 'calories' },
@@ -76,6 +77,7 @@ export function mapFoodToApiProduct(food, options = {}) {
   }, {})
 
   const { health, globalHealth } = scoreFoodProduct(food)
+  const concerns = buildConcerns(food.ingredients, nutritionFacts)
 
   const base = {
     gtin: food.gtinUpc || '',
@@ -92,6 +94,7 @@ export function mapFoodToApiProduct(food, options = {}) {
     ingredients: food.ingredients || 'Not listed',
     nutritionFacts,
     healthScore: globalHealth.totalScore,
+    concerns,
   }
 
   if (!debugScores) {

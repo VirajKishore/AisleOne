@@ -31,6 +31,37 @@ const productResponseSchema = {
       },
     },
     healthScore: { type: 'number' },
+    concerns: {
+      type: 'object',
+      properties: {
+        ingredients: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              tier: { type: 'string' },
+              name: { type: 'string' },
+              reason: { type: 'string' },
+              matchedText: { type: 'string' },
+            },
+          },
+        },
+        nutrients: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              nutrient: { type: 'string' },
+              amount: { type: 'number' },
+              unit: { type: 'string' },
+              tier: { type: 'string' },
+              dailyValuePct: { type: ['string', 'null'] },
+              reason: { type: 'string' },
+            },
+          },
+        },
+      },
+    },
     alternativesStatus: {
       type: 'object',
       properties: {

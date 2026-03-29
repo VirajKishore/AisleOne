@@ -1,0 +1,784 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   sidebar.css  –  aisle1 Persistent Right-Side Assistant Panel
+   Palette: #4ADE80 | #FBBF24 | #60A5FA | #F87171 | #FFFFFF
+   Font: Inter (injected via link in sidebar.js)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Design Tokens ─────────────────────────────────────────────────────────── */
+#aisle1-sidebar-host {
+  --sb-primary:      #4ADE80;
+  --sb-primary-dk:   #22C55E;
+  --sb-secondary:    #FBBF24;
+  --sb-accent:       #60A5FA;
+  --sb-danger:       #F87171;
+  --sb-bg:           #FFFFFF;
+  --sb-surface:      #F8FAFC;
+  --sb-surface2:     #F1F5F9;
+  --sb-border:       #E2E8F0;
+  --sb-text:         #1E293B;
+  --sb-text-muted:   #64748B;
+  --sb-text-light:   #94A3B8;
+  --sb-shadow:       0 0 0 1px rgba(0,0,0,.06), -4px 0 32px rgba(0,0,0,.10);
+  --sb-radius:       14px;
+  --sb-radius-sm:    8px;
+  --sb-radius-pill:  99px;
+  --sb-width:        360px;
+  --sb-font:         'Inter', system-ui, -apple-system, sans-serif;
+  --sb-transition:   220ms ease;
+
+  /* Shadow DOM host positioning */
+  all: initial;
+  position: fixed !important;
+  top: 0 !important;
+  right: 0 !important;
+  width: var(--sb-width) !important;
+  height: 100vh !important;
+  z-index: 2147483646 !important;
+  pointer-events: none;
+  font-family: var(--sb-font);
+}
+
+/* ── Sidebar Container ─────────────────────────────────────────────────────── */
+#aisle1-sidebar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: var(--sb-width);
+  height: 100%;
+  background: var(--sb-bg);
+  box-shadow: var(--sb-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: translateX(100%);
+  transition: transform 0.38s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: auto;
+  font-family: var(--sb-font);
+  font-size: 14px;
+  color: var(--sb-text);
+  line-height: 1.5;
+}
+
+#aisle1-sidebar.aisle1-sb--open {
+  transform: translateX(0);
+}
+
+/* ── Scrollable inner content ─────────────────────────────────────────────── */
+#aisle1-sb-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sb-border) transparent;
+  padding-bottom: 24px;
+}
+#aisle1-sb-scroll::-webkit-scrollbar { width: 4px; }
+#aisle1-sb-scroll::-webkit-scrollbar-thumb {
+  background: var(--sb-border);
+  border-radius: 4px;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   SECTION 1 — HEADER
+   ══════════════════════════════════════════════════════════════════════════════ */
+#aisle1-sb-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--sb-border);
+  background: var(--sb-bg);
+  flex-shrink: 0;
+}
+
+.aisle1-sb-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.aisle1-sb-logo-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.aisle1-sb-brand-name {
+  display: block;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--sb-text);
+  letter-spacing: -0.3px;
+  line-height: 1.1;
+}
+
+.aisle1-sb-brand-tagline {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--sb-text-muted);
+  font-weight: 400;
+  margin-top: 1px;
+}
+
+.aisle1-sb-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Status dot */
+.aisle1-sb-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--sb-border);
+  transition: background var(--sb-transition);
+}
+.aisle1-sb-status-dot.dot--scanning { background: var(--sb-secondary); animation: pulse 1.2s ease-in-out infinite; }
+.aisle1-sb-status-dot.dot--found    { background: var(--sb-primary); }
+.aisle1-sb-status-dot.dot--none     { background: var(--sb-border); }
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.6; transform: scale(0.75); }
+}
+
+/* Close button */
+#aisle1-sb-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: var(--sb-surface2);
+  border-radius: 50%;
+  font-size: 1rem;
+  color: var(--sb-text-muted);
+  cursor: pointer;
+  transition: background var(--sb-transition), color var(--sb-transition);
+  line-height: 1;
+}
+#aisle1-sb-close:hover { background: var(--sb-danger); color: #fff; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   STATE MANAGEMENT — only one state visible at a time
+   ══════════════════════════════════════════════════════════════════════════════ */
+.aisle1-state { display: none; }
+.aisle1-state.aisle1-state--active { display: block; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   STATE 1 — SCANNING
+   ══════════════════════════════════════════════════════════════════════════════ */
+#aisle1-state-scanning {
+  padding: 32px 20px;
+}
+
+.aisle1-scan-title {
+  font-size: 0.82rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--sb-text-muted);
+  margin-bottom: 20px;
+}
+
+.aisle1-scan-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.aisle1-scan-step {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--sb-text-light);
+  transition: color 0.3s ease;
+}
+
+.aisle1-scan-step.step--done   { color: var(--sb-text); }
+.aisle1-scan-step.step--active { color: var(--sb-accent); }
+
+.aisle1-step-indicator {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  border: 2px solid var(--sb-border);
+  background: transparent;
+  transition: all 0.3s ease;
+}
+
+.step--done .aisle1-step-indicator {
+  background: var(--sb-primary);
+  border-color: var(--sb-primary);
+  color: #fff;
+}
+.step--active .aisle1-step-indicator {
+  border-color: var(--sb-accent);
+  border-width: 2px;
+  border-top-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   STATE 2 — NO PRODUCT
+   ══════════════════════════════════════════════════════════════════════════════ */
+#aisle1-state-none {
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.aisle1-none-icon {
+  font-size: 2.5rem;
+  margin-bottom: 16px;
+  display: block;
+  opacity: 0.5;
+}
+
+.aisle1-none-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--sb-text);
+  margin-bottom: 8px;
+}
+
+.aisle1-none-body {
+  font-size: 0.8rem;
+  color: var(--sb-text-muted);
+  line-height: 1.65;
+}
+
+.aisle1-retailer-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.aisle1-retailer-chip {
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 4px 10px;
+  background: var(--sb-surface2);
+  border: 1px solid var(--sb-border);
+  border-radius: var(--sb-radius-pill);
+  color: var(--sb-text-muted);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   STATE 3 — PRODUCT DETECTED (Sections 2–6)
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+/* ── Section divider ────────────────────────────────────────────────────────── */
+.aisle1-section {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--sb-border);
+}
+.aisle1-section:last-of-type { border-bottom: none; }
+
+.aisle1-section-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--sb-text-light);
+  margin-bottom: 10px;
+}
+
+/* ── SECTION 2: Product Identity Card ────────────────────────────────────────── */
+#aisle1-identity {
+  background: var(--sb-surface);
+  padding: 16px 18px 14px;
+  border-bottom: 1px solid var(--sb-border);
+}
+
+.aisle1-identity-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.aisle1-product-image {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  object-fit: contain;
+  background: var(--sb-surface2);
+  border: 1px solid var(--sb-border);
+  flex-shrink: 0;
+}
+
+.aisle1-product-image-placeholder {
+  width: 56px;
+  height: 56px;
+  border-radius: 10px;
+  background: var(--sb-surface2);
+  border: 1px solid var(--sb-border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
+}
+
+.aisle1-product-meta { flex: 1; min-width: 0; }
+
+.aisle1-product-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--sb-text);
+  line-height: 1.35;
+  letter-spacing: -0.2px;
+  margin-bottom: 4px;
+  word-break: break-word;
+}
+
+.aisle1-product-brand {
+  font-size: 0.78rem;
+  color: var(--sb-text-muted);
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.aisle1-identity-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+}
+
+/* Retailer badge */
+.aisle1-retailer-badge {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 3px 8px;
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-accent);
+  color: #fff;
+}
+
+/* Category chip */
+.aisle1-category-chip {
+  font-size: 0.68rem;
+  font-weight: 500;
+  padding: 3px 8px;
+  border-radius: var(--sb-radius-pill);
+  background: var(--sb-surface2);
+  border: 1px solid var(--sb-border);
+  color: var(--sb-text-muted);
+}
+
+/* ── SECTION 3: Health Score Block ───────────────────────────────────────────── */
+#aisle1-score-section {
+  text-align: center;
+  padding: 24px 18px;
+  border-bottom: 1px solid var(--sb-border);
+}
+
+.aisle1-score-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--sb-text-light);
+  margin-bottom: 16px;
+}
+
+.aisle1-score-ring {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: var(--sb-surface2);
+  border: 3px dashed var(--sb-border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 14px;
+  animation: scoreRingPulse 2s ease-in-out infinite;
+}
+
+.aisle1-score-ring.score--high {
+  border-color: var(--sb-primary);
+  animation: none;
+}
+
+.aisle1-score-ring.score--medium {
+  border-color: var(--sb-secondary);
+  animation: none;
+}
+
+.aisle1-score-ring.score--low {
+  border-color: var(--sb-danger);
+  animation: none;
+}
+
+@keyframes scoreRingPulse {
+  0%, 100% { border-color: var(--sb-border); }
+  50%       { border-color: var(--sb-primary); }
+}
+
+.aisle1-score-dash {
+  font-size: 2rem;
+  font-weight: 800;
+  color: var(--sb-text-light);
+  letter-spacing: -1px;
+  line-height: 1;
+}
+
+.aisle1-score-sub {
+  font-size: 0.6rem;
+  color: var(--sb-text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.aisle1-score-placeholder {
+  font-size: 0.8rem;
+  color: var(--sb-text-muted);
+  font-style: italic;
+}
+
+/* Actual score display (hidden until scoring engine fires) */
+.aisle1-score-number {
+  display: none;
+  font-size: 2.8rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -2px;
+}
+.aisle1-score-number.score--high   { color: var(--sb-primary); }
+.aisle1-score-number.score--medium { color: var(--sb-secondary); }
+.aisle1-score-number.score--low    { color: var(--sb-danger); }
+
+/* ── SECTION 4: Nutrition Facts ───────────────────────────────────────────── */
+#aisle1-signals-section {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--sb-border);
+}
+
+.aisle1-analysis-copy {
+  font-size: 0.8rem;
+  color: var(--sb-text-muted);
+  line-height: 1.55;
+  font-style: italic;
+}
+
+.aisle1-nutrition-facts {
+  border: 2px solid #111827;
+  background: #fff;
+  padding: 10px 12px 12px;
+}
+
+.aisle1-nutrition-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #111827;
+  border-bottom: 3px solid #111827;
+  padding-bottom: 6px;
+  margin-bottom: 8px;
+}
+
+.aisle1-nutrition-calories,
+.aisle1-nutrition-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+  color: #111827;
+  border-bottom: 1px solid #CBD5E1;
+  font-size: 0.8rem;
+}
+
+.aisle1-nutrition-calories {
+  font-size: 0.95rem;
+  font-weight: 700;
+  border-bottom: 2px solid #111827;
+}
+
+.aisle1-nutrition-row:last-child {
+  border-bottom: none;
+}
+
+/* Skeleton shimmer for placeholders */
+.aisle1-skeleton {
+  background: linear-gradient(90deg, var(--sb-surface2) 25%, var(--sb-border) 50%, var(--sb-surface2) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+  border-radius: 4px;
+  height: 12px;
+}
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.aisle1-skeleton-line { height: 11px; border-radius: 4px; margin-bottom: 5px; }
+.aisle1-skeleton-line--short { width: 60%; }
+.aisle1-skeleton-line--medium { width: 80%; }
+.aisle1-skeleton-line--full { width: 100%; }
+
+/* ── SECTION 5: Healthier Alternatives ───────────────────────────────────────── */
+#aisle1-alts-section {
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--sb-border);
+}
+
+.aisle1-alts-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.aisle1-alt-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--sb-surface);
+  border: 1px solid var(--sb-border);
+  border-radius: var(--sb-radius-sm);
+  transition: border-color var(--sb-transition), box-shadow var(--sb-transition);
+}
+.aisle1-alt-row:hover {
+  border-color: var(--sb-primary);
+  box-shadow: 0 0 0 3px rgba(74,222,128,.12);
+}
+
+.aisle1-alt-placeholder {
+  flex: 1;
+}
+
+.aisle1-alt-score-badge {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--sb-surface2);
+  border: 2px dashed var(--sb-border);
+  flex-shrink: 0;
+}
+
+.aisle1-alt-link {
+  flex: 1;
+  color: var(--sb-text);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+.aisle1-alt-link:hover {
+  color: var(--sb-accent);
+  text-decoration: underline;
+}
+
+.aisle1-alt-score-pill {
+  flex-shrink: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: var(--sb-radius-pill);
+  padding: 3px 9px;
+  background: #DCFCE7;
+  color: #15803D;
+}
+
+/* ── SECTION 6: Collapsible Details ─────────────────────────────────────────── */
+#aisle1-details-section {
+  padding: 4px 0 0;
+}
+
+.aisle1-details-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 13px 18px;
+  border: none;
+  background: transparent;
+  font-family: var(--sb-font);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--sb-text-muted);
+  cursor: pointer;
+  text-align: left;
+  transition: color var(--sb-transition);
+}
+.aisle1-details-toggle:hover { color: var(--sb-accent); }
+
+.aisle1-toggle-chevron {
+  transition: transform 0.25s ease;
+  font-style: normal;
+}
+.aisle1-details-toggle.expanded .aisle1-toggle-chevron {
+  transform: rotate(180deg);
+}
+
+.aisle1-details-body {
+  overflow: hidden;
+  max-height: 0;
+  transition: max-height 0.3s ease;
+}
+.aisle1-details-body.expanded {
+  max-height: 300px;
+}
+
+.aisle1-details-inner {
+  padding: 4px 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.aisle1-detail-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 0.8rem;
+}
+
+.aisle1-detail-key {
+  font-weight: 600;
+  color: var(--sb-text-muted);
+  min-width: 90px;
+  flex-shrink: 0;
+}
+
+.aisle1-detail-val {
+  color: var(--sb-text);
+  word-break: break-all;
+}
+
+.aisle1-detail-val .badge-found {
+  color: #15803D;
+  font-weight: 600;
+}
+.aisle1-detail-val .badge-missing {
+  color: var(--sb-danger);
+  font-weight: 600;
+}
+
+/* Confidence chips */
+.aisle1-conf-chip {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-radius: var(--sb-radius-pill);
+  padding: 2px 8px;
+}
+.conf--high   { background: #DCFCE7; color: #15803D; }
+.conf--medium { background: #FEF9C3; color: #92400E; }
+.conf--low    { background: #FEE2E2; color: #B91C1C; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   CONCERNS SECTION
+   ══════════════════════════════════════════════════════════════════════════════ */
+
+.aisle1-concerns {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.aisle1-concerns-clean {
+  font-size: 0.8rem;
+  color: #15803D;
+  font-weight: 500;
+  padding: 2px 0;
+}
+
+.aisle1-concern-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--sb-radius-sm);
+  border-left: 3px solid transparent;
+  background: var(--sb-surface);
+}
+.aisle1-concern-row.concern--high   { border-left-color: #EF4444; background: #FEF2F2; }
+.aisle1-concern-row.concern--medium { border-left-color: #F97316; background: #FFF7ED; }
+.aisle1-concern-row.concern--low    { border-left-color: #EAB308; background: #FEFCE8; }
+
+.aisle1-concern-dot {
+  font-size: 0.75rem;
+  line-height: 1.6;
+  flex-shrink: 0;
+}
+
+.aisle1-concern-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.aisle1-concern-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--sb-text);
+  line-height: 1.4;
+}
+
+.aisle1-concern-dv {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: var(--sb-radius-pill);
+  background: rgba(0,0,0,.08);
+  margin-left: 4px;
+  vertical-align: middle;
+}
+
+.aisle1-concern-reason {
+  font-size: 0.72rem;
+  color: var(--sb-text-muted);
+  line-height: 1.45;
+}
+
+/* Ingredient text with highlighted concerns */
+.aisle1-ingredients-text {
+  font-size: 0.78rem;
+  color: var(--sb-text-muted);
+  line-height: 1.7;
+  max-height: 80px;
+  overflow: hidden;
+}
+
+mark.ingr-hl {
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 600;
+  cursor: default;
+  background: transparent;
+}
+mark.ingr-hl--high   { background: #FEE2E2; color: #B91C1C; }
+mark.ingr-hl--medium { background: #FFEDD5; color: #C2410C; }
+mark.ingr-hl--low    { background: #FEF9C3; color: #854D0E; }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   STATE TRANSITIONS — fade-in between states
+   ══════════════════════════════════════════════════════════════════════════════ */
+.aisle1-state {
+  animation: fadeUp 0.28s ease both;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

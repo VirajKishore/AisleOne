@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="aisle1 – Grocery Product Intelligence Extension" />
+  <title>aisle1 – Product Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <header id="popup-header">
+    <div class="header-logo">
+      <span class="header-icon">🛒</span>
+      <h1 class="header-title">aisle1</h1>
+    </div>
+    <span class="header-subtitle">Grocery Intelligence</span>
+  </header>
+
+  <main id="popup-main">
+    <div id="state-product" hidden>
+      <section class="product-card" id="product-card">
+        <div class="product-card-header">
+          <span id="source-badge" class="source-badge"></span>
+          <div id="confidence-badge" class="confidence-badge"></div>
+        </div>
+
+        <h2 id="product-name" class="product-name"></h2>
+        <p id="product-brand" class="product-brand"></p>
+
+        <div id="gtin-status" class="gtin-status">
+          <span id="gtin-icon" class="gtin-icon"></span>
+          <span id="gtin-label" class="gtin-label"></span>
+          <span id="gtin-value" class="gtin-value"></span>
+        </div>
+      </section>
+
+      <section class="analysis-panel" id="analysis-status-panel">
+        <div class="analysis-panel-header">
+          <span class="analysis-panel-title">Health Score</span>
+          <span id="analysis-status-chip" class="analysis-status-chip">Loading</span>
+        </div>
+        <div class="popup-score-row">
+          <div id="popup-score-ring" class="popup-score-ring">
+            <span id="popup-score-value" class="popup-score-value">—</span>
+            <span class="popup-score-sub">/100</span>
+          </div>
+          <p id="analysis-status-message" class="analysis-status-message">Analyzing nutrition…</p>
+        </div>
+      </section>
+
+      <section class="meta-panel" id="concerns-panel" hidden>
+        <h3 class="meta-panel-title meta-panel-title--concerns">Watch Out For</h3>
+        <div id="concerns-list"></div>
+      </section>
+
+      <section class="meta-panel" id="nutrition-panel">
+        <h3 class="meta-panel-title">Nutrition Facts</h3>
+        <div id="nutrition-summary"></div>
+      </section>
+
+      <section class="meta-panel" id="alternatives-panel">
+        <h3 class="meta-panel-title">Better Alternatives</h3>
+        <div id="alternatives-list"></div>
+      </section>
+
+      <section class="meta-panel" id="ingredients-panel" hidden>
+        <h3 class="meta-panel-title">Ingredients</h3>
+        <p id="ingredients-text" class="meta-panel-body popup-ingredients-text"></p>
+      </section>
+
+      <section class="debug-panel" id="debug-panel" hidden>
+        <button id="debug-toggle" class="debug-toggle">Show Logs ▾</button>
+        <div id="debug-content" class="debug-content" hidden>
+          <table class="debug-table" id="debug-table"></table>
+          <pre id="debug-logs" class="debug-logs"></pre>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script src="utils/analysisView.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>

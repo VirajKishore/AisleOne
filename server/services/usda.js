@@ -72,11 +72,35 @@ export async function getFoodByFdcId(fdcId) {
 }
 
 /**
+ * Normalise any UPC-A (12), EAN-13, or GTIN-14 string to a 14-digit GTIN-14.
+ * USDA FoodData Central stores every barcode zero-padded to 14 digits.
+ * UPC-A (12 digits) → prepend "00"  e.g. 049000028911 → 00049000028911
+ * EAN-13 (13 digits) → prepend "0"  e.g. 5000112548167 → 05000112548167
+ */
+function normalizeToGtin14(gtin) {
+  const digits = String(gtin).replace(/\D/g, '')
+  if (digits.length >= 14) return digits.slice(-14)
+  return digits.padStart(14, '0')
+}
+
+/**
  * Search by GTIN, then load full food by FDC ID so `foodNutrients` matches the detail
  * endpoint (complete panel) instead of abridged search-only nutrients.
+ *
+ * Strategy: try the raw GTIN first (works for products stored with 12-digit UPC-A),
+ * then fall back to GTIN-14 zero-padded form if no result (USDA stores many products
+ * with the 14-digit format).
  */
 export async function findFoodByGtinDetailed(gtin) {
-  const foods = await searchFoods(gtin, 1, 1)
+  const rawDigits = String(gtin).replace(/\D/g, '')
+  const gtin14   = normalizeToGtin14(rawDigits)
+
+  // Try raw first; only run the second search if it's a different string
+  let foods = await searchFoods(rawDigits, 1, 1)
+  if (foods.length === 0 && gtin14 !== rawDigits) {
+    foods = await searchFoods(gtin14, 1, 1)
+  }
+
   const searchHit = foods[0] || null
   if (!searchHit) {
     return { food: null, searchHit: null }
