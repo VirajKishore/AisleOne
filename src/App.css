@@ -1,0 +1,352 @@
+.app-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+
+.panel {
+  background: #ffffff;
+  border: 1px solid #d6d6d6;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #666;
+}
+
+h1 {
+  margin: 0 0 12px;
+  font-size: 36px;
+  line-height: 1.1;
+  color: #111;
+}
+
+.intro {
+  margin: 0 0 20px;
+  color: #333;
+}
+
+.lookup-form {
+  display: block;
+}
+
+.field {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.field span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 14px;
+  color: #222;
+}
+
+.field input[type='text'],
+.field input[type='file'] {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #bbb;
+  border-radius: 8px;
+  background: #fff;
+  color: #111;
+}
+
+button {
+  padding: 10px 14px;
+  border: 1px solid #222;
+  border-radius: 8px;
+  background: #222;
+  color: #fff;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.upload-field {
+  margin-top: 14px;
+}
+
+.file-note,
+.status {
+  margin: 12px 0 0;
+}
+
+.status {
+  color: #333;
+}
+
+.status.error {
+  color: #b00020;
+}
+
+.results {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #ddd;
+}
+
+.product-meta {
+  margin: 0 0 4px;
+  font-size: 14px;
+  color: #555;
+}
+
+.results h2 {
+  margin: 0 0 16px;
+  font-size: 24px;
+  color: #111;
+}
+
+.product-details {
+  margin: 0 0 20px;
+}
+
+.product-details div {
+  margin-bottom: 10px;
+}
+
+.product-details dt {
+  font-size: 13px;
+  font-weight: 700;
+  color: #444;
+}
+
+.product-details dd {
+  margin: 4px 0 0;
+  color: #111;
+}
+
+.nutrition-list-card,
+.ingredients-card,
+.raw-data {
+  margin-top: 18px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  background: #fafafa;
+}
+
+.nutrition-list-card h3,
+.ingredients-card h3,
+.raw-data h3 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  color: #111;
+}
+
+.nutrition-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nutrition-items li {
+  display: block;
+  padding: 10px 0;
+  border-top: 1px solid #e1e1e1;
+}
+
+.nutrition-items li:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+
+.nutri-score-block {
+  margin-top: 12px;
+}
+
+.nutri-score-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid #cfcfcf;
+}
+
+.nutri-score-segment {
+  min-width: 42px;
+  padding: 8px 12px;
+  text-align: center;
+  font-weight: 700;
+  color: #fff;
+}
+
+.nutri-score-segment.active {
+  transform: scale(1.05);
+}
+
+.nutri-score-summary {
+  margin: 12px 0 0;
+  color: #222;
+}
+
+.nutri-score-input {
+  margin: 12px 0 0;
+  padding: 12px;
+  border-radius: 6px;
+  background: #f0f0f0;
+  color: #222;
+  font-size: 12px;
+  overflow: auto;
+}
+
+.nutrition-name {
+  display: block;
+  font-weight: 700;
+  color: #111;
+}
+
+.nutrition-amount,
+.nutrition-dv {
+  display: inline-block;
+  margin-top: 4px;
+  margin-right: 12px;
+  color: #333;
+}
+
+.ingredients-card p,
+.raw-data-note {
+  margin: 0;
+  color: #333;
+}
+
+.raw-data-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.raw-data pre {
+  margin: 0;
+  padding: 12px;
+  max-height: 420px;
+  overflow: auto;
+  border-radius: 6px;
+  background: #111;
+  color: #f5f5f5;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.global-health-card {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 20px;
+  align-items: center;
+}
+
+.global-health-gauge {
+  --gauge-color: #1f8f55;
+  --gauge-fill: 0%;
+  width: 160px;
+  height: 160px;
+  border-radius: 50%;
+  background: conic-gradient(var(--gauge-color) var(--gauge-fill), #e4e7eb 0);
+  display: grid;
+  place-items: center;
+}
+
+.global-health-gauge-inner {
+  width: 118px;
+  height: 118px;
+  border-radius: 50%;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #111;
+}
+
+.global-health-gauge-inner strong {
+  font-size: 36px;
+  line-height: 1;
+}
+
+.global-health-gauge-inner span {
+  margin-top: 4px;
+  font-size: 13px;
+  color: #555;
+}
+
+.global-health-copy p {
+  margin: 0;
+  color: #333;
+}
+
+.global-health-copy p + p {
+  margin-top: 8px;
+}
+
+.processing-alerts {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e1e1e1;
+}
+
+.processing-alerts h4 {
+  margin: 0 0 10px;
+  font-size: 15px;
+  color: #111;
+}
+
+.processing-alert-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.processing-alert-list li {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #fde7e4;
+  border: 1px solid #efb2ab;
+  color: #8a1f14;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.processing-alert-empty {
+  margin: 0;
+  color: #2d6a4f;
+}
+
+@media (max-width: 640px) {
+  .panel {
+    padding: 16px;
+  }
+
+  h1 {
+    font-size: 28px;
+  }
+
+  .raw-data-header {
+    display: block;
+  }
+
+  .raw-data-header button {
+    margin-top: 10px;
+  }
+
+  .global-health-card {
+    grid-template-columns: 1fr;
+  }
+
+  .global-health-gauge {
+    margin: 0 auto;
+  }
+}

@@ -1,0 +1,230 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Food Ingredients by Barcode</title>
+    <style>
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        margin: 2rem;
+        line-height: 1.4;
+        color: #111;
+      }
+
+      h1 {
+        margin-top: 0;
+      }
+
+      .row {
+        margin: 0.75rem 0;
+      }
+
+      input[type="text"],
+      input[type="file"],
+      button {
+        font: inherit;
+      }
+
+      input[type="text"] {
+        width: min(420px, 100%);
+        padding: 0.45rem 0.55rem;
+      }
+
+      button {
+        margin-left: 0.4rem;
+        padding: 0.45rem 0.7rem;
+      }
+
+      #status {
+        margin-top: 1rem;
+      }
+
+      #result {
+        margin-top: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Food Ingredients by Barcode</h1>
+
+    <div class="row">
+      <label for="barcodeInput">Barcode (GTIN): </label>
+      <input
+        id="barcodeInput"
+        type="text"
+        inputmode="numeric"
+        placeholder="Enter barcode manually"
+      />
+      <button id="lookupBtn" type="button">Lookup</button>
+    </div>
+
+    <div class="row">
+      <label for="barcodeImage">Upload barcode image: </label>
+      <input id="barcodeImage" type="file" accept="image/*" />
+    </div>
+
+    <div id="status" aria-live="polite"></div>
+    <div id="result"></div>
+
+    <script src="https://unpkg.com/quagga/dist/quagga.min.js"></script>
+    <script>
+      const barcodeInput = document.getElementById("barcodeInput");
+      const barcodeImage = document.getElementById("barcodeImage");
+      const lookupBtn = document.getElementById("lookupBtn");
+      const statusEl = document.getElementById("status");
+      const resultEl = document.getElementById("result");
+
+      function setStatus(message) {
+        statusEl.textContent = message;
+      }
+
+      function clearResult() {
+        resultEl.innerHTML = "";
+      }
+
+      function renderProduct(product) {
+        const ingredients = Array.isArray(product.ingredients) ? product.ingredients : [];
+        const productName = product.product_name || "Unnamed product";
+
+        if (!ingredients.length) {
+          resultEl.innerHTML = `
+            <h2>${escapeHtml(productName)}</h2>
+            <p>No ingredient data available.</p>
+          `;
+          return;
+        }
+
+        const ingredientItems = ingredients
+          .map((ingredient) => {
+            const name = ingredient.text || ingredient.id || "Unknown ingredient";
+            const percent =
+              typeof ingredient.percent_estimate === "number"
+                ? `${ingredient.percent_estimate}%`
+                : "Amount not specified.";
+
+            return `<li>${escapeHtml(name)} - ${escapeHtml(percent)}</li>`;
+          })
+          .join("");
+
+        resultEl.innerHTML = `
+          <h2>${escapeHtml(productName)}</h2>
+          <ul>${ingredientItems}</ul>
+        `;
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      async function fetchProduct(barcode) {
+        const normalized = String(barcode || "").trim();
+        if (!normalized) {
+          setStatus("Please enter or scan a barcode.");
+          clearResult();
+          return;
+        }
+
+        setStatus(`Looking up barcode: ${normalized}...`);
+        clearResult();
+
+        try {
+          const url = `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(normalized)}.json`;
+          const response = await fetch(url);
+
+          if (response.status === 404) {
+            setStatus("Product not found");
+            return;
+          }
+
+          if (!response.ok) {
+            setStatus(`Request failed (${response.status}).`);
+            return;
+          }
+
+          const data = await response.json();
+          if (!data || data.status === 0 || !data.product) {
+            setStatus("Product not found");
+            return;
+          }
+
+          setStatus("");
+          renderProduct(data.product);
+        } catch (error) {
+          setStatus(`Error: ${error.message}`);
+        }
+      }
+
+      function decodeBarcodeFromImage(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+
+          reader.onload = () => {
+            Quagga.decodeSingle(
+              {
+                src: reader.result,
+                numOfWorkers: 0,
+                inputStream: {
+                  size: 1200
+                },
+                decoder: {
+                  readers: [
+                    "ean_reader",
+                    "ean_8_reader",
+                    "upc_reader",
+                    "upc_e_reader",
+                    "code_128_reader"
+                  ]
+                },
+                locate: true
+              },
+              (result) => {
+                if (result && result.codeResult && result.codeResult.code) {
+                  resolve(result.codeResult.code);
+                } else {
+                  reject(new Error("Could not decode barcode from image."));
+                }
+              }
+            );
+          };
+
+          reader.onerror = () => reject(new Error("Failed to read image file."));
+          reader.readAsDataURL(file);
+        });
+      }
+
+      lookupBtn.addEventListener("click", () => {
+        fetchProduct(barcodeInput.value);
+      });
+
+      barcodeInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          fetchProduct(barcodeInput.value);
+        }
+      });
+
+      barcodeImage.addEventListener("change", async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (!file) {
+          return;
+        }
+
+        setStatus("Decoding barcode from image...");
+        clearResult();
+
+        try {
+          const decodedBarcode = await decodeBarcodeFromImage(file);
+          barcodeInput.value = decodedBarcode;
+          await fetchProduct(decodedBarcode);
+        } catch (error) {
+          setStatus(error.message);
+        }
+      });
+    </script>
+  </body>
+</html>
