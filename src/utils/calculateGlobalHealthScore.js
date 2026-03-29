@@ -35,11 +35,14 @@ const NUTRI_POINTS = {
 }
 
 const NOVA_SCORES = {
-  1: 20,
-  2: 10,
-  3: 0,
-  4: -12,
+  1: 18,
+  2: 8,
+  3: -2,
+  4: -8,
 }
+
+const MAX_NEGATIVE_QUALITY_ADJUSTMENT = -12
+const MAX_POSITIVE_QUALITY_ADJUSTMENT = 15
 
 function clampScore(score) {
   return Math.max(0, Math.min(100, Math.round(score)))
@@ -74,9 +77,9 @@ function getAdditiveMatches(ingredients) {
 }
 
 function computeAdditivePenalty(additiveMatches) {
-  const highPenalty = Math.min(16, additiveMatches.high.length * 8)
-  const mediumPenalty = Math.min(8, additiveMatches.medium.length * 4)
-  const lowPenalty = Math.min(3, additiveMatches.low.length)
+  const highPenalty = Math.min(12, additiveMatches.high.length * 6)
+  const mediumPenalty = Math.min(6, additiveMatches.medium.length * 3)
+  const lowPenalty = Math.min(2, additiveMatches.low.length)
 
   return -(highPenalty + mediumPenalty + lowPenalty)
 }
@@ -101,10 +104,10 @@ function computeIngredientLengthScore(ingredientsString) {
   }
 
   if (count <= 20) {
-    return -4
+    return -2
   }
 
-  return -8
+  return -4
 }
 
 function isGrainBasedFood(text) {
@@ -131,18 +134,18 @@ function computeAddedSugarPenalty(text, context = {}) {
   const addedSugars = Number(context.addedSugars)
 
   if (Number.isFinite(addedSugars) && addedSugars > 0) {
-    if (addedSugars >= 12) {
-      return -10
-    }
-
-    if (addedSugars >= 6) {
+    if (addedSugars >= 20) {
       return -6
     }
 
-    return -3
+    if (addedSugars >= 10) {
+      return -4
+    }
+
+    return -2
   }
 
-  return ADDED_SUGARS.some((sugar) => text.includes(sugar)) ? -6 : 0
+  return ADDED_SUGARS.some((sugar) => text.includes(sugar)) ? -4 : 0
 }
 
 function computeMacroDensityBonus(context = {}) {
@@ -247,7 +250,7 @@ export function calculateGlobalHealthScore(
   ]
 
   const nutriPoints = resolveNutriBaseScore(normalizedGrade, normalizedNutriScore)
-  const nutriComponent = nutriPoints * 0.55
+  const nutriComponent = nutriPoints * 0.65
   const novaGroup = computeNovaGroup(ingredients, additiveMatches, ingredientCount)
   const novaComponent = NOVA_SCORES[novaGroup]
   const additivePenalty = computeAdditivePenalty(additiveMatches)
@@ -263,17 +266,16 @@ export function calculateGlobalHealthScore(
   })
   const ingredientQualityAdjustment =
     additivePenalty + grainScore + sugarPenalty + ingredientLengthComponent + macroBonus + wholeFoodBonus
+  const boundedIngredientQualityAdjustment = Math.max(
+    MAX_NEGATIVE_QUALITY_ADJUSTMENT,
+    Math.min(MAX_POSITIVE_QUALITY_ADJUSTMENT, ingredientQualityAdjustment),
+  )
 
   return {
     totalScore: clampScore(
       nutriComponent +
         novaComponent +
-        additivePenalty +
-        grainScore +
-        sugarPenalty +
-        ingredientLengthComponent +
-        macroBonus +
-        wholeFoodBonus,
+        boundedIngredientQualityAdjustment,
     ),
     nutriScoreGrade: (normalizedGrade || 'e').toUpperCase(),
     novaGroup,
@@ -284,7 +286,8 @@ export function calculateGlobalHealthScore(
     ingredientLengthComponent,
     macroBonus,
     wholeFoodBonus,
-    ingredientQualityAdjustment,
+    ingredientQualityAdjustment: boundedIngredientQualityAdjustment,
+    rawIngredientQualityAdjustment: ingredientQualityAdjustment,
     nutriComponent: clampScore(nutriComponent),
     novaComponent,
   }

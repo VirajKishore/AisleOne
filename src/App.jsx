@@ -247,7 +247,6 @@ function App() {
     const nutrients = Array.isArray(food.foodNutrients) ? food.foodNutrients : []
     const servingSize = Number(food.servingSize) || null
     const servingUnit = food.servingSizeUnit || ''
-    const addedSugarsNutrient = findNutrient(nutrients, 'sugars, added')
 
     const nutritionItems = NUTRIENT_CONFIG.map((item) => {
       const nutrient = findNutrient(nutrients, item.nutrientName)
@@ -274,9 +273,9 @@ function App() {
         productName: food.description,
         foodType: health.foodType,
         categoryText: food.foodCategory,
-        protein: health.input.proteins,
-        fiber: health.input.fibers,
-        addedSugars: Number(addedSugarsNutrient?.value),
+        protein: nutritionItems.find((item) => item.label === 'Protein')?.amount ?? 0,
+        fiber: nutritionItems.find((item) => item.label === 'Dietary Fiber')?.amount ?? 0,
+        addedSugars: nutritionItems.find((item) => item.label === 'Added Sugars')?.amount ?? 0,
       },
     )
 

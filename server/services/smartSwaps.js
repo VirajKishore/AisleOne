@@ -1,9 +1,8 @@
 import { GoogleGenAI } from '@google/genai'
 import { rankUsdaMatches } from '../../src/utils/rankUsdaMatches.js'
-import { calculateProductHealth } from '../../src/utils/calculateProductHealth.js'
-import { calculateGlobalHealthScore } from '../../src/utils/calculateGlobalHealthScore.js'
 import { getApiEnv } from './env.js'
-import { safeFindFoodByTitle } from './usda.js'
+import { scoreFoodProduct } from './productScoring.js'
+import { getFoodByFdcId, safeFindFoodByTitle } from './usda.js'
 
 const GEMINI_MODEL = 'gemini-2.5-flash-lite'
 const SERPER_SEARCH_URL = 'https://google.serper.dev/search'
@@ -263,24 +262,11 @@ function isLikelyProductLink(link) {
 }
 
 function scoreAlternativeFood(food) {
-  const health = calculateProductHealth(food)
-  const globalHealth = calculateGlobalHealthScore(
-    health.grade,
-    food.ingredients,
-    health.normalizedScore,
-    {
-      productName: food.description,
-      foodType: health.foodType,
-      categoryText: food.foodCategory,
-      protein: health.input.proteins,
-      fiber: health.input.fibers,
-    },
-  )
-
-  return globalHealth.totalScore
+  const { globalHealth } = scoreFoodProduct(food)
+  return globalHealth
 }
 
-export async function buildAlternativeProducts(product) {
+export async function buildAlternativeProducts(product, { logger = null, debugScores = false } = {}) {
   try {
     const { category, searchKeywords } = await classifyProductForSwaps(product.name)
     const serperResults = await findHealthierSwaps(category, searchKeywords)
@@ -291,7 +277,7 @@ export async function buildAlternativeProducts(product) {
     ))
 
     const candidates = await Promise.all(
-      filteredResults.slice(0, MAX_SERPER_RESULTS).map(async (result) => {
+      filteredResults.slice(0, MAX_SERPER_RESULTS).map(async (result, index) => {
         const foods = await safeFindFoodByTitle(result.title, 8)
         const matchedFood = rankUsdaMatches(result.title, foods, 1)[0]
 
@@ -299,11 +285,36 @@ export async function buildAlternativeProducts(product) {
           return null
         }
 
-        const score = scoreAlternativeFood(matchedFood)
+        let foodForScore = matchedFood
+        if (matchedFood.fdcId) {
+          try {
+            const full = await getFoodByFdcId(matchedFood.fdcId)
+            if (full) {
+              foodForScore = full
+            }
+          } catch {
+            /* keep search hit */
+          }
+        }
+
+        const globalHealth = scoreAlternativeFood(foodForScore)
+
+        if (debugScores && logger?.info && index === 0) {
+          logger.info({
+            msg: 'alternative_scoring_first',
+            originalProduct: product.name,
+            candidateTitle: matchedFood.description || result.title,
+            candidateLink: result.link,
+            candidateHealthScore: globalHealth.totalScore,
+            candidateRelevanceScore: matchedFood.matchScore,
+            candidateScoreBreakdown: globalHealth,
+          }, 'Alternative product scoring (first Serper result only)')
+        }
+
         return {
           fdcId: matchedFood.fdcId,
           title: matchedFood.description || result.title,
-          score,
+          score: globalHealth.totalScore,
           link: result.link,
           relevanceScore: matchedFood.matchScore,
         }

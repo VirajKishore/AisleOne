@@ -1,6 +1,7 @@
 import { getApiEnv } from './env.js'
 
 const USDA_SEARCH_URL = 'https://api.nal.usda.gov/fdc/v1/foods/search'
+const USDA_FOOD_URL = 'https://api.nal.usda.gov/fdc/v1/food'
 
 function getUsdaApiKey() {
   const apiKey = getApiEnv('USDA_API_KEY', 'VITE_USDA_API_KEY')
@@ -42,9 +43,72 @@ async function searchFoods(query, pageSize = 1, pageNumber = 1) {
   return Array.isArray(data?.foods) ? data.foods : []
 }
 
-export async function findFoodByGtin(gtin) {
+export async function getFoodByFdcId(fdcId) {
+  const apiKey = getUsdaApiKey()
+  const id = Number(fdcId)
+  if (!Number.isFinite(id)) {
+    throw new Error('Invalid FDC ID.')
+  }
+
+  const response = await fetch(`${USDA_FOOD_URL}/${id}?api_key=${encodeURIComponent(apiKey)}`)
+
+  if (response.status === 429) {
+    throw new Error('USDA rate limit exceeded.')
+  }
+
+  if (response.status === 403) {
+    throw new Error('Invalid USDA API key.')
+  }
+
+  if (response.status === 404) {
+    return null
+  }
+
+  if (!response.ok) {
+    throw new Error(`USDA food detail failed (${response.status}).`)
+  }
+
+  return response.json()
+}
+
+/**
+ * Search by GTIN, then load full food by FDC ID so `foodNutrients` matches the detail
+ * endpoint (complete panel) instead of abridged search-only nutrients.
+ */
+export async function findFoodByGtinDetailed(gtin) {
   const foods = await searchFoods(gtin, 1, 1)
-  return foods[0] || null
+  const searchHit = foods[0] || null
+  if (!searchHit) {
+    return { food: null, searchHit: null }
+  }
+
+  if (!searchHit.fdcId) {
+    return { food: searchHit, searchHit }
+  }
+
+  try {
+    const full = await getFoodByFdcId(searchHit.fdcId)
+    if (full) {
+      return {
+        food: {
+          ...searchHit,
+          ...full,
+          gtinUpc: full.gtinUpc ?? searchHit.gtinUpc,
+          foodNutrients: full.foodNutrients ?? searchHit.foodNutrients,
+        },
+        searchHit,
+      }
+    }
+  } catch {
+    /* keep search hit */
+  }
+
+  return { food: searchHit, searchHit }
+}
+
+export async function findFoodByGtin(gtin) {
+  const { food } = await findFoodByGtinDetailed(gtin)
+  return food
 }
 
 export async function findFoodByTitle(title, pageSize = 8) {

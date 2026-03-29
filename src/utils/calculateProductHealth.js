@@ -1,4 +1,5 @@
 import { nutriScore } from 'nutri-score'
+import { normalizeFoodNutrientsArray } from './normalizeFoodNutrients.js'
 
 const ENERGY_KCAL_TO_KJ = 4.184
 const NUTRI_SCORE_RANGES = {
@@ -77,7 +78,7 @@ function detectNutriScoreMode(food, foodType) {
 }
 
 export function calculateProductHealth(food) {
-  const foodNutrients = Array.isArray(food?.foodNutrients) ? food.foodNutrients : []
+  const foodNutrients = normalizeFoodNutrientsArray(food?.foodNutrients)
   const foodType = detectFoodType(food)
   const nutriScoreMode = detectNutriScoreMode(food, foodType)
   const { min, max } = NUTRI_SCORE_RANGES[nutriScoreMode]

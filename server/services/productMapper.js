@@ -1,5 +1,5 @@
-import { calculateProductHealth } from '../../src/utils/calculateProductHealth.js'
-import { calculateGlobalHealthScore } from '../../src/utils/calculateGlobalHealthScore.js'
+import { scoreFoodProduct } from './productScoring.js'
+import { withNormalizedFoodNutrients } from '../../src/utils/normalizeFoodNutrients.js'
 
 const NUTRIENT_CONFIG = [
   { key: 'calories', nutrientName: 'energy', unit: 'kcal', type: 'calories' },
@@ -34,25 +34,34 @@ function formatNumber(value, type = 'default') {
 }
 
 function computePerServingValue(nutrient, servingSize) {
-  if (!nutrient?.value || !servingSize) {
+  if (nutrient == null || servingSize == null) {
+    return 0
+  }
+
+  const numericServingSize = Number(servingSize)
+  if (!Number.isFinite(numericServingSize) || numericServingSize === 0) {
     return 0
   }
 
   const numericValue = Number(nutrient.value)
-  const numericServingSize = Number(servingSize)
-
-  if (!Number.isFinite(numericValue) || !Number.isFinite(numericServingSize)) {
+  if (!Number.isFinite(numericValue)) {
     return 0
   }
 
   return (numericValue / 100) * numericServingSize
 }
 
-export function mapFoodToApiProduct(food) {
-  const nutrients = Array.isArray(food?.foodNutrients) ? food.foodNutrients : []
+function getPerServingAmount(foodNutrients, nutrientName, servingSize) {
+  const nutrient = findNutrient(foodNutrients, nutrientName)
+  return computePerServingValue(nutrient, servingSize)
+}
+
+export function mapFoodToApiProduct(food, options = {}) {
+  const { debugScores = false } = options
+  const foodForFacts = withNormalizedFoodNutrients(food)
+  const nutrients = Array.isArray(foodForFacts?.foodNutrients) ? foodForFacts.foodNutrients : []
   const servingSize = Number(food?.servingSize) || null
   const servingUnit = food?.servingSizeUnit || ''
-  const addedSugarsNutrient = findNutrient(nutrients, 'sugars, added')
 
   const nutritionFacts = NUTRIENT_CONFIG.reduce((accumulator, item) => {
     const nutrient = findNutrient(nutrients, item.nutrientName)
@@ -66,22 +75,9 @@ export function mapFoodToApiProduct(food) {
     return accumulator
   }, {})
 
-  const health = calculateProductHealth(food)
-  const globalHealth = calculateGlobalHealthScore(
-    health.grade,
-    food.ingredients,
-    health.normalizedScore,
-    {
-      productName: food.description,
-      foodType: health.foodType,
-      categoryText: food.foodCategory,
-      protein: health.input.proteins,
-      fiber: health.input.fibers,
-      addedSugars: Number(addedSugarsNutrient?.value),
-    },
-  )
+  const { health, globalHealth } = scoreFoodProduct(food)
 
-  return {
+  const base = {
     gtin: food.gtinUpc || '',
     name: food.description || 'Unnamed product',
     brand: food.brandName || food.brandOwner || 'Brand not listed',
@@ -96,5 +92,25 @@ export function mapFoodToApiProduct(food) {
     ingredients: food.ingredients || 'Not listed',
     nutritionFacts,
     healthScore: globalHealth.totalScore,
+  }
+
+  if (!debugScores) {
+    return base
+  }
+
+  return {
+    ...base,
+    _debug: {
+      scoreInput: {
+        grade: health.grade,
+        normalizedScore: health.normalizedScore,
+        foodType: health.foodType,
+        nutriScoreMode: health.nutriScoreMode,
+        nutriInputs: health.input,
+        proteinPerServing: getPerServingAmount(nutrients, 'protein', servingSize),
+        fiberPerServing: getPerServingAmount(nutrients, 'fiber, total dietary', servingSize),
+      },
+      scoreBreakdown: globalHealth,
+    },
   }
 }
